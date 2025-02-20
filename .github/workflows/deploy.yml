@@ -41,7 +41,7 @@ jobs:
       - name: Aplicar Terraform
         run: |
             cd infra
-            terraform apply -auto-approve
+            terraform destroy -auto-approve
 
       - name: Login no Amazon ECR
         run: |
