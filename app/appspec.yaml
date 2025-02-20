@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "ecs-task-def.json"
+        LoadBalancerInfo:
+          ContainerName: "php-api"
+          ContainerPort: 80
