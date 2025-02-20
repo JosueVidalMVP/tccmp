@@ -1,4 +1,4 @@
-name: Deploy EC2 na AWS com Terraform
+name: Deploy PHP API para AWS ECS
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 jobs:
   deploy:
+    name: Criar Infra AWS e Deploy no ECS
     runs-on: ubuntu-latest
 
     steps:
@@ -28,10 +29,29 @@ jobs:
           sudo mv terraform /usr/local/bin/
 
       - name: Inicializar Terraform
-        run: terraform init
+        run: |
+            cd infra
+            terraform init
 
       - name: Aplicar Terraform
-        run: terraform apply -auto-approve
+        run: |
+            cd infra
+            terraform plan
 
-      - name: Exibir IP Público da Instância
-        run: terraform output public_ip
+      - name: Aplicar Terraform
+        run: |
+            cd infra
+            terraform apply -auto-approve
+
+      - name: Login no Amazon ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+      - name: Build e Push da Imagem Docker para o ECR
+        run: |
+          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest ./app
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest
+
+      - name: Atualizar Serviço no ECS
+        run: |
+          aws ecs update-service --cluster php-api-cluster --service php-api-service --force-new-deployment
