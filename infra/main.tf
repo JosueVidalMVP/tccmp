@@ -2,21 +2,28 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Criando repositório no Amazon ECR
-resource "aws_ecr_repository" "php_api" {
-  name = "php-api"
+# Criar um par de chaves SSH
+resource "tls_private_key" "ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-# Criando Cluster no ECS
-resource "aws_ecs_cluster" "php_cluster" {
-  name = "php-api-cluster"
+resource "aws_key_pair" "deployer_key" {
+  key_name   = "deployer-key"
+  public_key = tls_private_key.ssh_key.public_key_openssh
 }
 
-# Criando Grupo de Segurança para permitir tráfego HTTP
-resource "aws_security_group" "ecs_sg" {
-  name        = "ecs_security_group"
-  description = "Permitir tráfego HTTP"
-  vpc_id      = aws_vpc.main.id
+# Criar Grupo de Segurança para permitir acesso SSH e HTTP
+resource "aws_security_group" "ec2_sg" {
+  name        = "ec2_security_group"
+  description = "Permitir acesso SSH e HTTP"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Liberado para qualquer IP (para fins de teste)
+  }
 
   ingress {
     from_port   = 80
@@ -33,125 +40,34 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# Criando Fargate Service
-resource "aws_ecs_task_definition" "php_task" {
-  family                   = "php-api-task"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
+# Criar instância EC2
+resource "aws_instance" "web" {
+  ami             = "ami-0c55b159cbfafe1f0"  # Ubuntu Server (mudar conforme a região)
+  instance_type   = "t2.micro"
+  key_name        = aws_key_pair.deployer_key.key_name
+  security_groups = [aws_security_group.ec2_sg.name]
 
-  container_definitions = jsonencode([
-    {
-      name      = "php-api",
-      image     = "${aws_ecr_repository.php_api.repository_url}:latest",
-      memory    = 512,
-      cpu       = 256,
-      essential = true,
-      portMappings = [{
-        containerPort = 80,
-        hostPort      = 80
-      }]
-    }
-  ])
-}
-
-resource "aws_ecs_service" "php_service" {
-  name            = "php-api-service"
-  cluster         = aws_ecs_cluster.php_cluster.id
-  task_definition = aws_ecs_task_definition.php_task.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets         = aws_subnet.public.*.id
-    security_groups = [aws_security_group.ecs_sg.id]
-    assign_public_ip = true
+  tags = {
+    Name = "MeuServidorEC2"
   }
-}provider "aws" {
-  region = "us-east-1"
+
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo apt update -y
+              sudo apt install -y apache2
+              echo "<h1>Servidor EC2 Implantado com Terraform 🚀</h1>" | sudo tee /var/www/html/index.html
+              sudo systemctl start apache2
+              sudo systemctl enable apache2
+              EOF
 }
 
-# Criando repositórios no ECR
-resource "aws_ecr_repository" "backend" {
-  name = "php-backend"
+# Criar um Elastic IP para a instância EC2
+resource "aws_eip" "ec2_eip" {
+  instance = aws_instance.web.id
 }
 
-resource "aws_ecr_repository" "frontend" {
-  name = "php-frontend"
-}
-
-# Criando Banco de Dados no RDS PostgreSQL
-resource "aws_db_instance" "postgres" {
-  allocated_storage    = 20
-  engine              = "postgres"
-  instance_class      = "db.t3.micro"
-  db_name             = "mydb"
-  username           = "admin"
-  password           = "SuperSenhaSegura123"
-  publicly_accessible = false
-  skip_final_snapshot = true
-}
-
-# Criando Cluster no ECS
-resource "aws_ecs_cluster" "php_cluster" {
-  name = "php-ecs-cluster"
-}
-
-# Criando Backend Service
-resource "aws_ecs_task_definition" "backend_task" {
-  family                   = "php-backend-task"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "php-backend",
-      image     = "${aws_ecr_repository.backend.repository_url}:latest",
-      memory    = 512,
-      cpu       = 256,
-      essential = true,
-      environment = [
-        { name = "DB_HOST", value = aws_db_instance.postgres.address },
-        { name = "DB_NAME", value = "mydb" },
-        { name = "DB_USER", value = "admin" },
-        { name = "DB_PASS", value = "SuperSenhaSegura123" }
-      ],
-      portMappings = [{
-        containerPort = 80,
-        hostPort      = 80
-      }]
-    }
-  ])
-}
-
-# Criando Frontend Service
-resource "aws_ecs_task_definition" "frontend_task" {
-  family                   = "php-frontend-task"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "php-frontend",
-      image     = "${aws_ecr_repository.frontend.repository_url}:latest",
-      memory    = 512,
-      cpu       = 256,
-      essential = true,
-      portMappings = [{
-        containerPort = 80,
-        hostPort      = 80
-      }]
-    }
-  ])
+# Salvar a chave privada localmente (NÃO SUBIR PARA O GITHUB)
+resource "local_file" "private_key" {
+  content  = tls_private_key.ssh_key.private_key_pem
+  filename = "key.pem"
 }
