@@ -16,7 +16,7 @@ resource "aws_ecs_cluster" "php_cluster" {
 resource "aws_security_group" "ecs_sg" {
   name        = "ecs_security_group"
   description = "Permitir tráfego HTTP"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = vpc_id
 
   ingress {
     from_port   = 80
@@ -40,8 +40,8 @@ resource "aws_ecs_task_definition" "php_task" {
   cpu                      = "256"
   memory                   = "512"
   network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = arn:aws:iam::442426878063:user/devops
+  task_role_arn            = arn:aws:iam::442426878063:user/devops
 
   container_definitions = jsonencode([
     {
