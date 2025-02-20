@@ -24,11 +24,20 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Build e Push da Imagem Docker para o ECR
+      - name: Build e Push Backend
         run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest ./app
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest
+          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-backend:latest ./backend
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-backend:latest
+
+      - name: Build e Push Frontend
+        run: |
+          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-frontend:latest ./frontend
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-frontend:latest
+
+      - name: Aplicar Terraform
+        run: terraform apply -auto-approve
 
       - name: Atualizar Serviço no ECS
         run: |
-          aws ecs update-service --cluster php-api-cluster --service php-api-service --force-new-deployment
+          aws ecs update-service --cluster php-ecs-cluster --service php-backend --force-new-deployment
+          aws ecs update-service --cluster php-ecs-cluster --service php-frontend --force-new-deployment
