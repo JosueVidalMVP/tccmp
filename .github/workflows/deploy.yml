@@ -43,6 +43,12 @@ jobs:
             cd infra
             terraform apply -auto-approve
 
+      - name: Criar Repositório no Amazon ECR
+        run: |
+          aws ecr create-repository --repository-name minha-aplicacao --region us-east-1 || echo "Repositório já existe"
+
+      - name: Exibir Repositórios Existentes
+        run: aws ecr describe-repositories --region us-east-1      
 #      - name: Login no Amazon ECR
 #        run: |
 #         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
