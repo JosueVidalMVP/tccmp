@@ -41,17 +41,17 @@ jobs:
       - name: Aplicar Terraform
         run: |
             cd infra
-            terraform destroy -auto-approve
+            terraform apply -auto-approve
 
-      - name: Login no Amazon ECR
-        run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+#      - name: Login no Amazon ECR
+#        run: |
+#         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Build e Push da Imagem Docker para o ECR
-        run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest ./app
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest
+#      - name: Build e Push da Imagem Docker para o ECR
+#        run: |
+#          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest ./app
+#          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/php-api:latest
 
-      - name: Atualizar Serviço no ECS
-        run: |
-          aws ecs update-service --cluster php-api-cluster --service php-api-service --force-new-deployment
+#      - name: Atualizar Serviço no ECS
+#       run: |
+#          aws ecs update-service --cluster php-api-cluster --service php-api-service --force-new-deployment
